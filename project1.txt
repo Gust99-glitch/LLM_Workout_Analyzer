@@ -1,0 +1,88 @@
+/* Project 1 – Swiss Banknotes (Q1–Q9) */
+
+/* Step 0: Input data manually (replace ... with all 100 rows) */
+data swiss;
+  input length left_width right_width bottom_margin top_margin diag_length;
+  datalines;
+214.8 131.0 131.1  9.0  9.7 141.0
+214.6 129.7 129.7  8.1  9.5 141.7
+214.8 129.7 129.7  8.7  9.6 142.2
+/* continue with all rows from swiss1.txt */
+;
+run;
+
+/* Q1: Scatter Matrix */
+proc sgscatter data=swiss;
+  matrix length left_width right_width bottom_margin top_margin diag_length /
+         diagonal=(histogram kernel);
+  title "Scatterplot Matrix – Swiss Banknotes";
+run;
+
+/* Q2: Sample Means, Covariance, Correlation */
+proc means data=swiss mean std n;
+  var length left_width right_width bottom_margin top_margin diag_length;
+run;
+
+proc corr data=swiss cov noprob;
+  var length left_width right_width bottom_margin top_margin diag_length;
+run;
+
+/* Q3: Generalized Sample Variance (|S|) */
+proc iml;
+  use swiss; read all var _NUM_ into X; close;
+  S = cov(X);
+  detS = det(S);
+  print detS[label="Generalized Sample Variance |S|"];
+quit;
+
+/* Q4: Hypotheses are stated in report text */
+
+/* Q5: Formula for Hotelling’s T² (given in report text) */
+
+/* Q6: Hotelling’s T² and P-value */
+proc iml;
+  use swiss; read all var _NUM_ into X; close;
+  n = nrow(X); p = ncol(X);
+  xbar = X[:,];
+  S = cov(X); Sinv = inv(S);
+
+  mu0 = {215, 130, 130, 9, 10, 141.354}`; /* H0 vector */
+
+  d = xbar` - mu0;
+  T2 = n * d` * Sinv * d;
+  F  = ((n - p)/(p*(n - 1))) * T2;
+  pval = 1 - probf(F, p, n - p);
+
+  print n p xbar mu0 T2 F pval;
+quit;
+
+/* Q7: Decision at α=0.05 (interpret in report text) */
+
+/* Q8: 95% Simultaneous and Bonferroni CIs */
+proc iml;
+  use swiss; read all var _NUM_ into X; close;
+  n = nrow(X); p = ncol(X);
+  xbar = X[:,]; S = cov(X);
+
+  alpha = 0.05;
+  Fcrit = finv(1-alpha, p, n-p);
+  c_sim = sqrt((p*(n-1))/(n*(n-p)) * Fcrit);
+  tcrit = tinv(1 - alpha/(2*p), n-1);
+
+  names = {"length" "left_width" "right_width" "bottom_margin" "top_margin" "diag_length"};
+  sim_lo = j(p,1,.); sim_hi = j(p,1,.);
+  bon_lo = j(p,1,.); bon_hi = j(p,1,.);
+
+  do i = 1 to p;
+    se_i = sqrt(S[i,i]/n);
+    sim_lo[i] = xbar[i] - c_sim*se_i;
+    sim_hi[i] = xbar[i] + c_sim*se_i;
+
+    bon_lo[i] = xbar[i] - tcrit*se_i;
+    bon_hi[i] = xbar[i] + tcrit*se_i;
+  end;
+
+  print names xbar sim_lo sim_hi bon_lo bon_hi;
+quit;
+
+/* Q9: Compare intervals and interpret in report text */
